@@ -257,7 +257,6 @@ func (s *Spinner) Start(optionalMessage ...string) {
 			case <-ticker.C:
 				// Rewind to start of line and print the current frame and message.
 				// Note: We don't fully clear the line here as this causes flickering.
-				fmt.Printf("\r")
 				fmt.Printf("%s %s", s.getNextSpinnerFrame(), s.getMessage())
 
 				// Do we need to update the ticker?
