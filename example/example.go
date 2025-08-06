@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/leaanthony/spinner"
+	"github.com/damianpumar/spinner"
 )
 
 func main() {

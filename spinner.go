@@ -13,6 +13,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/leaanthony/synx"
 	isatty "github.com/mattn/go-isatty"
+	"golang.org/x/term"
 )
 
 // Specialise the type
@@ -257,7 +258,21 @@ func (s *Spinner) Start(optionalMessage ...string) {
 			case <-ticker.C:
 				// Rewind to start of line and print the current frame and message.
 				// Note: We don't fully clear the line here as this causes flickering.
-				fmt.Printf("%s %s", s.getNextSpinnerFrame(), s.getMessage())
+				frame := s.getNextSpinnerFrame()
+				message := s.getMessage()
+				termWidth := getTerminalWidth()
+
+				maxMsgLen := termWidth - len(frame) - 1 // 1 for space
+				if maxMsgLen < 0 {
+					maxMsgLen = 0
+				}
+
+				if len(message) > maxMsgLen {
+					message = message[:maxMsgLen-1] + "…"
+				}
+
+				fmt.Print("\r\x1b[2K")
+				fmt.Printf("%s %s", frame, message)
 
 				// Do we need to update the ticker?
 				if s.speedUpdated.GetValue() == true {
@@ -340,4 +355,12 @@ func (s *Spinner) Successf(format string, args ...interface{}) {
 	s.exitStatus = successStatus
 	message := fmt.Sprintf(format, args...)
 	s.stop(message)
+}
+
+func getTerminalWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width < 1 {
+		return 80 // fallback
+	}
+	return width
 }
