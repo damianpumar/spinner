@@ -9,10 +9,11 @@ import (
 )
 
 func main() {
-
 	// Default Success
 	a := spinner.New("This is a success")
 	a.Start()
+	time.Sleep(time.Second * 2)
+	a.UpdateMessage("Doing some more work...")
 	time.Sleep(time.Second * 2)
 	a.Success()
 

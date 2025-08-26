@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -157,11 +156,10 @@ func (s *Spinner) getSpinSpeed() (ms int) {
 // UpdateMessage sets the spinner message.
 // Can be flickery if not appending so use with care.
 func (s *Spinner) UpdateMessage(message string) {
-	// Clear line if this isn't an append.
-	// for smoother screen updates.
-	if strings.Index(message, s.getMessage()) != 0 {
-		s.clearCurrentLine()
+	if s.getMessage() == message {
+		return
 	}
+
 	s.setMessage(message)
 }
 
