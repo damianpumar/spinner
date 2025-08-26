@@ -38,7 +38,7 @@ func getDefaultSpinnerFrames() []string {
 func getStatusSymbols() (successSymbol, errorSymbol string) {
 	switch runtime.GOOS {
 	case "windows":
-		return ">", "!"
+		return "✓", "✗"
 	default:
 		return "✓", "✗"
 	}
@@ -87,6 +87,7 @@ func NewSpinner(optionalMessage ...string) *Spinner {
 		running:         synx.NewBool(false),
 		isTerminal:      synx.NewBool(isatty.IsTerminal(os.Stdout.Fd())),
 		exitOnInterrupt: synx.NewBool(true),
+		currentLine:     synx.NewString(""),
 	}
 
 	return result
@@ -159,7 +160,6 @@ func (s *Spinner) UpdateMessage(message string) {
 	if s.getMessage() == message {
 		return
 	}
-
 	s.setMessage(message)
 }
 
@@ -208,7 +208,6 @@ func (s *Spinner) Start(optionalMessage ...string) {
 	count := 0
 	maxCount := 10
 	for s.getRunning() == true && count < maxCount {
-		//
 		time.Sleep(time.Millisecond * 50)
 		count++
 	}
@@ -246,45 +245,42 @@ func (s *Spinner) Start(optionalMessage ...string) {
 
 	// spawn off a goroutine to handle the animation.
 	go func() {
-
 		ticker := time.NewTicker(time.Millisecond * time.Duration(s.spinSpeed.GetValue()))
 
-		// Let's go!
 		for {
 			select {
-			// For each frame tick
 			case <-ticker.C:
-				// Rewind to start of line and print the current frame and message.
-				// Note: We don't fully clear the line here as this causes flickering.
 				frame := s.getNextSpinnerFrame()
 				message := s.getMessage()
-				termWidth := getTerminalWidth()
 
-				maxMsgLen := termWidth - len(frame) - 1 // 1 for space
-				if maxMsgLen < 0 {
-					maxMsgLen = 0
+				if runtime.GOOS == "windows" {
+					if s.currentLine.GetValue() != message {
+						fmt.Printf("\r%s %s", frame, message)
+					}
+				} else {
+					termWidth := getTerminalWidth()
+
+					maxMsgLen := termWidth - len(frame) - 1
+					if maxMsgLen < 0 {
+						maxMsgLen = 0
+					}
+
+					if len(message) > maxMsgLen {
+						message = message[:maxMsgLen-1] + "…"
+					}
+
+					fmt.Print("\r")
+					fmt.Printf("%s %s", frame, message)
 				}
 
-				if len(message) > maxMsgLen {
-					message = message[:maxMsgLen-1] + "…"
-				}
-
-				fmt.Print("\r\x1b[2K")
-				fmt.Printf("%s %s", frame, message)
-
-				// Do we need to update the ticker?
+				// update ticker if speed changed
 				if s.speedUpdated.GetValue() == true {
 					ticker.Stop()
 					ticker = time.NewTicker(time.Millisecond * time.Duration(s.spinSpeed.GetValue()))
 				}
 
-			// If we get a stop signal
 			case <-s.stopChan:
-
-				// Store the fact we aren't running
 				s.setRunning(false)
-
-				// Quit the animation
 				return
 			}
 		}
@@ -292,48 +288,30 @@ func (s *Spinner) Start(optionalMessage ...string) {
 }
 
 // stop will stop the spinner.
-// The final message will either be the current message
-// or the optional, given message.
-// Success status will print the message in green.
-// Error status will print the message in red.
 func (s *Spinner) stop(message ...string) {
-
 	var finalMessage = s.getMessage()
-
-	// If we have an optional message, save it.
 	if len(message) > 0 {
 		finalMessage = message[0]
 	}
-
-	// Ensure we are running before issuing stop signal.
 	if s.running.GetValue() {
-		// Issue stop signal to animation.
 		s.stopChan <- struct{}{}
 	}
-
-	// Clear the line, because a new message may be shorter than the original.
 	s.clearCurrentLine()
-
-	// Output the symbol and message depending on the status code.
 	if s.exitStatus == errorStatus {
 		color.HiRed("\r%s %s", s.getErrorSymbol(), finalMessage)
 	} else {
 		color.HiGreen("\r%s %s", s.getSuccessSymbol(), finalMessage)
 	}
-
-	// Show the cursor again
 	showCursor()
 }
 
 // Error stops the spinner and sets the status code to error.
-// Optional message to print instead of current message.
 func (s *Spinner) Error(message ...string) {
 	s.exitStatus = errorStatus
 	s.stop(message...)
 }
 
-// Errorf stops the spinner, formats and sets the status code to error.
-// Formats and prints the given message instead of current message.
+// Errorf stops the spinner with a formatted message.
 func (s *Spinner) Errorf(format string, args ...interface{}) {
 	s.exitStatus = errorStatus
 	message := fmt.Sprintf(format, args...)
@@ -341,14 +319,12 @@ func (s *Spinner) Errorf(format string, args ...interface{}) {
 }
 
 // Success stops the spinner and sets the status code to success.
-// Optional message to print instead of current message.
 func (s *Spinner) Success(message ...string) {
 	s.exitStatus = successStatus
 	s.stop(message...)
 }
 
-// Successf stops the spinner, formats and sets the status code to success.
-// Formats and prints the given message instead of current message.
+// Successf stops the spinner with a formatted message.
 func (s *Spinner) Successf(format string, args ...interface{}) {
 	s.exitStatus = successStatus
 	message := fmt.Sprintf(format, args...)
