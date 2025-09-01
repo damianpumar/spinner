@@ -21,7 +21,7 @@ func (s *Spinner) clearCurrentLine() {
 	fmt.Printf("\r")
 
 	// Get the current line length
-	var length = len(s.getMessage()) + len(s.getCurrentSpinnerFrame()) + 1
+	var length = len(s.GetMessage()) + len(s.getCurrentSpinnerFrame()) + 1
 
 	for i := 0; i < length; i++ {
 		fmt.Printf(" ")
