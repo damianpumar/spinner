@@ -157,7 +157,7 @@ func (s *Spinner) getSpinSpeed() (ms int) {
 // UpdateMessage sets the spinner message.
 // Can be flickery if not appending so use with care.
 func (s *Spinner) UpdateMessage(message string) {
-	if s.getMessage() == message {
+	if s.GetMessage() == message {
 		return
 	}
 	s.setMessage(message)
@@ -177,7 +177,7 @@ func (s *Spinner) setMessage(message string) {
 	s.message.SetValue(message)
 }
 
-func (s *Spinner) getMessage() string {
+func (s *Spinner) GetMessage() string {
 	return s.message.GetValue()
 }
 
@@ -214,7 +214,7 @@ func (s *Spinner) Start(optionalMessage ...string) {
 
 	// Did we fail?
 	if count == maxCount {
-		s.Error("Tried to start a running spinner with message: " + s.getMessage())
+		s.Error("Tried to start a running spinner with message: " + s.GetMessage())
 		return
 	}
 
@@ -251,7 +251,7 @@ func (s *Spinner) Start(optionalMessage ...string) {
 			select {
 			case <-ticker.C:
 				frame := s.getNextSpinnerFrame()
-				message := s.getMessage()
+				message := s.GetMessage()
 
 				if runtime.GOOS == "windows" {
 					if s.currentLine.GetValue() != message {
@@ -289,7 +289,7 @@ func (s *Spinner) Start(optionalMessage ...string) {
 
 // stop will stop the spinner.
 func (s *Spinner) stop(message ...string) {
-	var finalMessage = s.getMessage()
+	var finalMessage = s.GetMessage()
 	if len(message) > 0 {
 		finalMessage = message[0]
 	}
