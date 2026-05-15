@@ -260,7 +260,7 @@ func (s *Spinner) Start(optionalMessage ...string) {
 
 				if runtime.GOOS == "windows" {
 					if s.currentLine.GetValue() != message {
-						fmt.Fprintf(s.writer, "\r%s %s", frame, message)
+						fmt.Fprintf(s.writer, "\r\033[K%s %s", frame, message)
 					}
 				} else {
 					termWidth := getTerminalWidth(s.writer)
@@ -274,8 +274,11 @@ func (s *Spinner) Start(optionalMessage ...string) {
 						message = message[:maxMsgLen-1] + "…"
 					}
 
-					fmt.Fprint(s.writer, "\r")
-					fmt.Fprintf(s.writer, "%s %s", frame, message)
+					// Single write: carriage return + clear to end of line + frame + message.
+					// Using one Fprintf avoids a race window between the \r and the content
+					// write that caused visible flicker when an external goroutine wrote
+					// between the two calls.
+					fmt.Fprintf(s.writer, "\r\033[K%s %s", frame, message)
 				}
 
 				// update ticker if speed changed
