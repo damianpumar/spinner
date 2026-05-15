@@ -18,13 +18,13 @@ func hideCursor() {
 
 func (s *Spinner) clearCurrentLine() {
 	// *shudder*
-	fmt.Printf("\r")
+	fmt.Fprint(s.writer, "\r")
 
 	// Get the current line length
 	var length = len(s.GetMessage()) + len(s.getCurrentSpinnerFrame()) + 1
 
 	for i := 0; i < length; i++ {
-		fmt.Printf(" ")
+		fmt.Fprint(s.writer, " ")
 	}
-	fmt.Printf("\r")
+	fmt.Fprint(s.writer, "\r")
 }

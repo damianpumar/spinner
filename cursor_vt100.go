@@ -19,5 +19,5 @@ func hideCursor() {
 }
 
 func (s *Spinner) clearCurrentLine() {
-	fmt.Printf("\r\033[0K")
+	fmt.Fprint(s.writer, "\r\033[0K")
 }

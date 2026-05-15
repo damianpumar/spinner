@@ -47,7 +47,7 @@ func getStatusSymbols() (successSymbol, errorSymbol string) {
 // Spinner defines our spinner data.
 type Spinner struct {
 	message         *synx.String      // message to display
-	stopChan        chan struct{}     // exit channel
+	stopChan        chan struct{}      // exit channel
 	speedUpdated    *synx.Bool        // Indicates speed has been updated
 	exitStatus      status            // Status of exit
 	successSymbol   *synx.String      // Symbol printed when Success() called
@@ -62,6 +62,7 @@ type Spinner struct {
 	abortMessage    *synx.String      // Printed when handling ctrl-c interrupt
 	isTerminal      *synx.Bool        // Flag indicating if we are outputting to terminal
 	exitOnInterrupt *synx.Bool        // Indicates the spinner will os.Exit on interrupt
+	writer          *os.File          // Terminal writer captured at creation time, unaffected by os.Stdout redirects
 }
 
 // NewSpinner creates a new spinner and sets up the default values.
@@ -88,6 +89,10 @@ func NewSpinner(optionalMessage ...string) *Spinner {
 		isTerminal:      synx.NewBool(isatty.IsTerminal(os.Stdout.Fd())),
 		exitOnInterrupt: synx.NewBool(true),
 		currentLine:     synx.NewString(""),
+		// Capture the real terminal *os.File at creation time. This ensures the
+		// spinner goroutine always writes to the terminal even when the caller
+		// later redirects os.Stdout (e.g. to suppress testing framework output).
+		writer: os.Stdout,
 	}
 
 	return result
@@ -197,7 +202,7 @@ func (s *Spinner) SetExitOnInterrupt(value bool) {
 }
 
 func (s *Spinner) printSuccess(message string, args ...interface{}) {
-	color.HiGreen(message, args...)
+	color.New(color.FgHiGreen).Fprintf(s.writer, message, args...)
 }
 
 // Start the spinner!
@@ -236,8 +241,8 @@ func (s *Spinner) Start(optionalMessage ...string) {
 		<-sigchan
 		// Notify and clean up
 		s.stopChan <- struct{}{}
-		fmt.Println("")
-		color.HiRed("\r%s %s", s.getErrorSymbol(), s.getAbortMessage())
+		fmt.Fprintln(s.writer, "")
+		color.New(color.FgHiRed).Fprintf(s.writer, "\r%s %s\n", s.getErrorSymbol(), s.getAbortMessage())
 		if s.getExitOnInterrupt() {
 			os.Exit(1)
 		}
@@ -255,10 +260,10 @@ func (s *Spinner) Start(optionalMessage ...string) {
 
 				if runtime.GOOS == "windows" {
 					if s.currentLine.GetValue() != message {
-						fmt.Printf("\r%s %s", frame, message)
+						fmt.Fprintf(s.writer, "\r%s %s", frame, message)
 					}
 				} else {
-					termWidth := getTerminalWidth()
+					termWidth := getTerminalWidth(s.writer)
 
 					maxMsgLen := termWidth - len(frame) - 1
 					if maxMsgLen < 0 {
@@ -269,8 +274,8 @@ func (s *Spinner) Start(optionalMessage ...string) {
 						message = message[:maxMsgLen-1] + "…"
 					}
 
-					fmt.Print("\r")
-					fmt.Printf("%s %s", frame, message)
+					fmt.Fprint(s.writer, "\r")
+					fmt.Fprintf(s.writer, "%s %s", frame, message)
 				}
 
 				// update ticker if speed changed
@@ -298,9 +303,9 @@ func (s *Spinner) stop(message ...string) {
 	}
 	s.clearCurrentLine()
 	if s.exitStatus == errorStatus {
-		color.HiRed("\r%s %s", s.getErrorSymbol(), finalMessage)
+		color.New(color.FgHiRed).Fprintf(s.writer, "\r%s %s\n", s.getErrorSymbol(), finalMessage)
 	} else {
-		color.HiGreen("\r%s %s", s.getSuccessSymbol(), finalMessage)
+		color.New(color.FgHiGreen).Fprintf(s.writer, "\r%s %s\n", s.getSuccessSymbol(), finalMessage)
 	}
 	showCursor()
 }
@@ -331,8 +336,8 @@ func (s *Spinner) Successf(format string, args ...interface{}) {
 	s.stop(message)
 }
 
-func getTerminalWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+func getTerminalWidth(w *os.File) int {
+	width, _, err := term.GetSize(int(w.Fd()))
 	if err != nil || width < 1 {
 		return 80 // fallback
 	}
